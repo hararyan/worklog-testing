@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="referrer" content="no-referrer">
+    <title>Work Report</title>
+    <script>try { document.documentElement.setAttribute('data-theme', localStorage.getItem('worklog.theme') || 'dark') } catch (e) { }</script>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <header class="no-print">
+        <div class="wrap">
+            <div class="brand">Work report <span class="hint" style="font-weight:400">· read-only</span></div>
+            <button class="btn" id="themeBtn" title="Switch theme">☀️</button>
+            <button class="btn primary" id="printBtn" hidden onclick="window.print()">Print / Save as PDF</button>
+        </div>
+    </header>
+
+    <main class="wrap" style="margin-top:20px">
+        <article class="sheet" id="sheet">
+            <p class="hint">Loading…</p>
+        </article>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <script src="common.js"></script>
+    <script>
+        // The link looks like  share.html#<long-random-token>
+        (async function boot() {
+            const sheet = $('#sheet');
+            const fail = (msg) => sheet.replaceChildren(el('h1', { text: 'Link not available' }), el('p', { class: 'sub', text: msg }));
+
+            let token = '';
+            try { token = decodeURIComponent(location.hash.slice(1)).trim(); } catch (e) { }
+            if (!/^[0-9a-f]{32,128}$/.test(token)) return fail('This link is incomplete or invalid. Please ask the sender for a new one.');
+
+            const { data, error } = await sb.rpc('get_shared_report', { p_token: token });
+            if (error) return fail('The report could not be loaded. ' + error.message);
+            if (!data) return fail('This link is invalid, has expired, or was removed by its owner.');
+
+            let entries;
+            try { entries = await normalizeEntries(data.entries || []); }
+            catch (err) { return fail('The report could not be loaded. ' + err.message); }
+
+            $('#printBtn').hidden = false;
+            const expiry = data.expires_at ? ' This link expires on ' + new Date(data.expires_at).toLocaleDateString() + '.' : '';
+            renderReport(sheet, entries, { name: data.name, from: data.date_from, to: data.date_to, note: 'Read-only view.' + expiry });
+        })();
+    </script>
+</body>
+
+</html>
